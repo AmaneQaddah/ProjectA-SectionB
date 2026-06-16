@@ -1,0 +1,151 @@
+[
+  {
+    "query_id": "q001",
+    "query": "What is a cell and what are its main components?",
+    "relevant_docs": [
+      "Cell (biology)",
+      "Cell membrane",
+      "Cell nucleus",
+      "Cell wall"
+    ]
+  },
+  {
+    "query_id": "q002",
+    "query": "How does active transport move molecules across a membrane?",
+    "relevant_docs": [
+      "Active transport",
+      "Antiporter",
+      "Biological membrane",
+      "Cell membrane"
+    ]
+  },
+  {
+    "query_id": "q003",
+    "query": "Role of ATP in cellular energy and hydrolysis",
+    "relevant_docs": [
+      "Adenosine triphosphate",
+      "ATP hydrolysis",
+      "ATP synthase",
+      "ATPase",
+      "Cellular respiration"
+    ]
+  },
+  {
+    "query_id": "q004",
+    "query": "Structure and function of actin filaments in the cytoskeleton",
+    "relevant_docs": [
+      "Actin",
+      "Actin filament",
+      "Actin-binding protein",
+      "Actin remodeling",
+      "Actinin"
+    ]
+  },
+  {
+    "query_id": "q005",
+    "query": "What is the acrosome reaction during fertilization?",
+    "relevant_docs": [
+      "Acrosome",
+      "Acrosome reaction",
+      "Acrosin",
+      "Acroplaxome"
+    ]
+  },
+  {
+    "query_id": "q006",
+    "query": "Calcium pumps and calcium ATPase mechanisms",
+    "relevant_docs": [
+      "Calcium ATPase",
+      "Calcium pump",
+      "Calcium"
+    ]
+  },
+  {
+    "query_id": "q007",
+    "query": "Plastids in plant cells: chloroplast and related organelles",
+    "relevant_docs": [
+      "Chloroplast",
+      "Chromoplast",
+      "Amyloplast",
+      "Apicoplast"
+    ]
+  },
+  {
+    "query_id": "q008",
+    "query": "Centrioles, centrosomes and basal bodies",
+    "relevant_docs": [
+      "Centriole",
+      "Centrosome",
+      "Basal body"
+    ]
+  },
+  {
+    "query_id": "q009",
+    "query": "Cilia, axonemes and cell movement structures",
+    "relevant_docs": [
+      "Cilium",
+      "Axoneme",
+      "Amoeboid movement"
+    ]
+  },
+  {
+    "query_id": "q010",
+    "query": "Famous food poisoning and contamination scandals in history",
+    "relevant_docs": [
+      "1858 Bradford sweets poisoning",
+      "1900 English beer poisoning",
+      "1971 Iraq poison grain disaster",
+      "2008 Chinese milk scandal",
+      "2013 horse meat scandal"
+    ]
+  },
+  {
+    "query_id": "q011",
+    "query": "E. coli outbreaks from contaminated food",
+    "relevant_docs": [
+      "1996 Odwalla E. coli outbreak",
+      "2006 North American E. coli O157_H7 outbreaks",
+      "2011 Germany E. coli O104_H4 outbreak"
+    ]
+  },
+  {
+    "query_id": "q012",
+    "query": "Common organic solvents and small carbon compounds",
+    "relevant_docs": [
+      "Acetone",
+      "Acetonitrile",
+      "Acetic acid",
+      "Acetaldehyde",
+      "Acetamide"
+    ]
+  },
+  {
+    "query_id": "q013",
+    "query": "Dictionaries and lexicons of the Latin and Greek languages",
+    "relevant_docs": [
+      "A Latin Dictionary",
+      "A Greek\u2013English Lexicon",
+      "Dictionary of Medieval Latin from British Sources"
+    ]
+  },
+  {
+    "query_id": "q014",
+    "query": "Oxford English dictionaries and reference works",
+    "relevant_docs": [
+      "Concise Oxford English Dictionary",
+      "Compact Oxford English Dictionary of Current English",
+      "Australian Oxford Dictionary",
+      "Canadian Oxford Dictionary"
+    ]
+  },
+  {
+    "query_id": "q015",
+    "query": "How did life originate from non-living matter?",
+    "relevant_docs": [
+      "Abiogenesis",
+      "Abiotic component",
+      "Adaptation",
+      "Adaptive radiation"
+    ]
+  }
+]
