@@ -1,5 +1,5 @@
 # Wikipedia Retrieval Pipeline
-#bayan
+
 Dense retrieval system over a Wikipedia corpus, evaluated with NDCG@10.
 
 ## Project Structure

@@ -1,34 +1,30 @@
-import os
+"""Self-evaluation on the 50 public queries (mean NDCG@10)."""
+from __future__ import annotations
+
 import sys
+import time
+from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+STUDENT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(STUDENT_ROOT))
 
-from eval import evaluate
+from eval import evaluate_run, load_query_file
 from main import run
-from utils import load_queries
+from utils import PUBLIC_QUERIES_PATH
 
 
 def main() -> None:
-    print("Loading public queries …")
-    query_records = load_queries()
+    rows = load_query_file(PUBLIC_QUERIES_PATH)
+    queries = [r["query"] for r in rows]
+    ground_truth = [r["relevant_page_ids"] for r in rows]
 
-    queries = [r["query"] for r in query_records]
-    query_ids = [r["query_id"] for r in query_records]
-    labels = {r["query_id"]: r["relevant_docs"] for r in query_records}
+    t0 = time.perf_counter()
+    stats = evaluate_run(queries, ground_truth, run)
+    elapsed = time.perf_counter() - t0
 
-    print(f"Running retrieval on {len(queries)} queries …")
-    raw_results = run(queries)
-
-    results = {qid: docs for qid, docs in zip(query_ids, raw_results)}
-
-    print("Computing NDCG@10 …")
-    scores = evaluate(results, labels, k=10)
-
-    mean_score = scores.pop("mean_ndcg")
-    for qid, score in sorted(scores.items()):
-        print(f"  {qid}: {score:.4f}")
-
-    print(f"\nMean NDCG@10: {mean_score:.4f}")
+    print(f"public_queries={len(queries)}")
+    print(f"mean_ndcg@10={stats['mean_ndcg@10']:.4f}")
+    print(f"query_phase_time={elapsed:.2f}s")
 
 
 if __name__ == "__main__":

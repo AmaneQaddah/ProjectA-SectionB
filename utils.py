@@ -1,64 +1,100 @@
-"""Shared I/O and corpus-loading helpers used across pipeline modules."""
+"""Shared paths and helper functions for Section B."""
 
 from __future__ import annotations
 
 import json
-import os
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, Iterator, List
 
 
-def load_json(path: str) -> Any:
-    """Load and return the contents of a JSON file."""
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+STUDENT_ROOT = Path(__file__).resolve().parent
+DATA_DIR = STUDENT_ROOT / "data"
+ENTRIES_DIR = DATA_DIR / "Wikipedia Entries"
+PUBLIC_QUERIES_PATH = DATA_DIR / "public_queries.json"
+ARTIFACTS_DIR = STUDENT_ROOT / "artifacts"
+
+EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+K_EVAL = 10
 
 
-def save_json(obj: Any, path: str, indent: int = 2) -> None:
-    """Serialise obj to a JSON file, creating parent directories as needed."""
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(obj, f, ensure_ascii=False, indent=indent)
+def normalize_page_id(value: Any) -> int:
+    """
+    Convert page_id from JSON to int.
+
+    Official files may store page_id as int or numeric string.
+    """
+    if isinstance(value, int):
+        return value
+
+    if isinstance(value, str):
+        value = value.strip()
+        if value.isdigit():
+            return int(value)
+
+    raise ValueError(f"Invalid page_id: {value!r}")
 
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-CORPUS_DIR = os.path.join(DATA_DIR, "Wikipedia_Entries")
-QUERIES_PATH = os.path.join(DATA_DIR, "public_queries.json")
+def load_public_queries(path: Path | None = None) -> List[Dict[str, Any]]:
+    """Load public queries and normalize relevant_page_ids to int."""
+    path = path or PUBLIC_QUERIES_PATH
+    rows = json.loads(path.read_text(encoding="utf-8"))
+
+    for row in rows:
+        row["relevant_page_ids"] = [
+            normalize_page_id(pid) for pid in row["relevant_page_ids"]
+        ]
+
+    return rows
 
 
-def load_corpus(corpus_dir: str = CORPUS_DIR) -> List[Dict[str, Any]]:
-    """Load all Wikipedia entry JSON files from corpus_dir."""
-    documents: List[Dict[str, Any]] = []
-    if not os.path.isdir(corpus_dir):
-        raise FileNotFoundError(f"Corpus directory not found: {corpus_dir}")
+def iter_entries(entries_dir: Path | None = None) -> Iterator[Dict[str, Any]]:
+    """
+    Yield one JSON record per Wikipedia entry.
 
-    for fname in sorted(os.listdir(corpus_dir)):
-        if not fname.endswith(".json"):
-            continue
-        fpath = os.path.join(corpus_dir, fname)
-        doc = load_json(fpath)
-        if "id" not in doc:
-            doc["id"] = os.path.splitext(fname)[0]
-        documents.append(doc)
+    Expected official format:
+    {
+        "page_id": "1000",
+        "title": "...",
+        "content": "..."
+    }
+    """
+    root = entries_dir or ENTRIES_DIR
 
-    return documents
+    if not root.is_dir():
+        raise FileNotFoundError(
+            f"Corpus directory not found: {root}. "
+            "Expected: data/Wikipedia Entries/"
+        )
+
+    for path in sorted(root.glob("*.json")):
+        record = json.loads(path.read_text(encoding="utf-8"))
+
+        # If page_id is missing, use filename stem as fallback.
+        record["page_id"] = normalize_page_id(record.get("page_id", path.stem))
+
+        yield record
 
 
-def load_queries(queries_path: str = QUERIES_PATH) -> List[Dict[str, Any]]:
-    """Load the public queries list from the JSON file."""
-    return load_json(queries_path)
+def entry_text(record: Dict[str, Any]) -> str:
+    """
+    Convert one page record to the text that will be embedded.
+
+    We include the title because many queries mention information
+    strongly connected to the page title.
+    """
+    title = str(record.get("title", "")).strip()
+    content = str(record.get("content", "")).strip()
+
+    if title and content:
+        return f"{title}\n\n{content}"
+
+    if title:
+        return title
+
+    return content
 
 
-def flatten(list_of_lists: List[List[Any]]) -> List[Any]:
-    """Flatten one level of nesting."""
-    return [item for sublist in list_of_lists for item in sublist]
-
-
-def deduplicate(items: List[Any]) -> List[Any]:
-    """Return list with duplicates removed, preserving first-seen order."""
-    seen = set()
-    result = []
-    for item in items:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
+def ensure_artifacts_dir() -> Path:
+    """Create artifacts/ if needed and return its path."""
+    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    return ARTIFACTS_DIR

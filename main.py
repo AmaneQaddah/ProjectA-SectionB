@@ -1,42 +1,48 @@
 """
-main.py – Entry point called by the autograder.
+Section B entry point.
 
-The autograder will call:
-
-    from main import run
-    results = run(queries)
-
-where `queries` is a list of query strings.
-`run` must return a list of lists of document IDs (strings), one per query,
-ranked from most to least relevant (up to 10 results each).
+The autograder calls run(queries) once with all evaluation queries.
+The offline build script calls build_offline_index().
 """
+
+from __future__ import annotations
 
 from typing import List
 
-from retrieve import retrieve
+from index import build_index
+from retrieve import search_batch
 
 
-def run(queries: List[str]) -> List[List[str]]:
+def run(queries: List[str]) -> List[List[int]]:
     """
-    Retrieve the top-10 Wikipedia document IDs for each query.
+    Rank corpus pages for each query.
 
-    Args:
-        queries: list of natural-language query strings.
+    Parameters
+    ----------
+    queries : list[str]
+        Batch of query strings.
 
-    Returns:
-        List of length len(queries). Each element is an ordered list of
-        document ID strings, most relevant first, with at most 10 entries.
+    Returns
+    -------
+    list[list[int]]
+        One ranked list of page_id values per query.
+        Only the first 10 IDs per list are scored.
     """
-    return retrieve(queries, top_k=10)
+    return search_batch(queries)
 
 
-# ---------------------------------------------------------------------------
-# Quick smoke test
-# ---------------------------------------------------------------------------
+def build_offline_index() -> None:
+    """
+    Build the corpus index offline and save artifacts/.
+
+    This is used locally by:
+        python scripts/build_index.py
+
+    The autograder does not call this during grading.
+    """
+    build_index()
+
 
 if __name__ == "__main__":
-    test_queries = ["What is the capital of France?", "History of the Roman Empire"]
-    results = run(test_queries)
-    for query, docs in zip(test_queries, results):
-        print(f"Query : {query}")
-        print(f"Top-10: {docs}\n")
+    build_offline_index()
+    print("Index built under artifacts/. Run: python scripts/eval_public.py")

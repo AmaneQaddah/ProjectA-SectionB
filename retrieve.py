@@ -1,67 +1,86 @@
-"""
-retrieve.py – High-level retrieval interface: query → ranked doc IDs.
-"""
+"""Query-time retrieval."""
 
-from typing import Any, Dict, List
+from __future__ import annotations
+
+from pathlib import Path
+from typing import List, Optional
+
+import numpy as np
 
 from embed import embed_queries
-from index import load_index, search_index
-
-_index = None
-_chunks = None
+from index import load_index
+from utils import K_EVAL
 
 
-def _ensure_loaded() -> None:
-    """Load the FAISS index and chunk list into module-level caches once."""
-    global _index, _chunks
-    if _index is None or _chunks is None:
-        _index, _chunks = load_index()
+_cached_vectors: np.ndarray | None = None
+_cached_page_ids: List[int] | None = None
 
 
-def retrieve(queries: List[str], top_k: int = 10) -> List[List[str]]:
-    """Retrieve the top-k document IDs for each query, most relevant first."""
-    _ensure_loaded()
+def _load_cached_index(
+    artifacts_dir: Optional[Path] = None,
+) -> tuple[np.ndarray, List[int]]:
+    """
+    Load the index once and cache it in memory.
 
-    query_embeddings = embed_queries(queries)
-    raw_results = search_index(_index, _chunks, query_embeddings, top_k=top_k * 5)
+    This helps because run() may search multiple queries in one call.
+    """
+    global _cached_vectors, _cached_page_ids
 
-    ranked_doc_ids: List[List[str]] = []
-    for result_chunks in raw_results:
-        doc_best_score: Dict[str, float] = {}
-        for chunk in result_chunks:
-            doc_id = chunk["doc_id"]
-            score = chunk["score"]
-            if doc_id not in doc_best_score or score > doc_best_score[doc_id]:
-                doc_best_score[doc_id] = score
+    if _cached_vectors is None or _cached_page_ids is None:
+        _cached_vectors, _cached_page_ids = load_index(artifacts_dir)
 
-        ranked = sorted(doc_best_score, key=doc_best_score.__getitem__, reverse=True)
-        ranked_doc_ids.append(ranked[:top_k])
-
-    return ranked_doc_ids
+    return _cached_vectors, _cached_page_ids
 
 
-def retrieve_with_scores(
-    queries: List[str], top_k: int = 10
-) -> List[List[Dict[str, Any]]]:
-    """Like retrieve(), but return result dicts including similarity scores."""
-    _ensure_loaded()
+def search_batch(
+    queries: List[str],
+    *,
+    top_k: int = K_EVAL,
+    artifacts_dir: Optional[Path] = None,
+) -> List[List[int]]:
+    """
+    Return ranked page_id lists for each query.
 
-    query_embeddings = embed_queries(queries)
-    raw_results = search_index(_index, _chunks, query_embeddings, top_k=top_k * 5)
+    Steps:
+    1. Load precomputed corpus vectors from artifacts/.
+    2. Embed the query batch.
+    3. Compute dot-product similarity.
+    4. Sort pages by score.
+    5. Return top_k page_id values.
+    """
+    corpus_vectors, page_ids = _load_cached_index(artifacts_dir)
 
-    all_results: List[List[Dict[str, Any]]] = []
-    for result_chunks in raw_results:
-        doc_best: Dict[str, Dict[str, Any]] = {}
-        for chunk in result_chunks:
-            doc_id = chunk["doc_id"]
-            if doc_id not in doc_best or chunk["score"] > doc_best[doc_id]["score"]:
-                doc_best[doc_id] = {
-                    "doc_id": doc_id,
-                    "title": chunk.get("title", ""),
-                    "score": chunk["score"],
-                }
+    if not queries:
+        return []
 
-        ranked = sorted(doc_best.values(), key=lambda x: x["score"], reverse=True)
-        all_results.append(ranked[:top_k])
+    query_vectors = embed_queries(queries)
 
-    return all_results
+    if query_vectors.size == 0:
+        return [[] for _ in queries]
+
+    # Since embeddings are normalized, dot product = cosine similarity.
+    scores = query_vectors @ corpus_vectors.T
+
+    all_ranked: List[List[int]] = []
+
+    for row in scores:
+        order = np.argsort(-row)
+
+        seen: set[int] = set()
+        ranked_ids: List[int] = []
+
+        for idx in order:
+            page_id = int(page_ids[int(idx)])
+
+            if page_id in seen:
+                continue
+
+            seen.add(page_id)
+            ranked_ids.append(page_id)
+
+            if len(ranked_ids) >= top_k:
+                break
+
+        all_ranked.append(ranked_ids)
+
+    return all_ranked

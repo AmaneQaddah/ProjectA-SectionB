@@ -1,125 +1,102 @@
-"""
-index.py – Builds and persists a FAISS vector index over chunk embeddings.
-"""
+"""Offline index build and load."""
 
 from __future__ import annotations
 
-import os
-import pickle
-from typing import Any, Dict, List, Tuple
+import json
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 import numpy as np
 
-ARTIFACTS_DIR = os.path.join(os.path.dirname(__file__), "artifacts")
-INDEX_PATH = os.path.join(ARTIFACTS_DIR, "faiss.index")
-CHUNKS_PATH = os.path.join(ARTIFACTS_DIR, "chunks.pkl")
+from chunk import Chunk, chunk_corpus
+from embed import embed_texts
+from utils import ARTIFACTS_DIR, EMBEDDING_MODEL_NAME, ensure_artifacts_dir, iter_entries
 
 
-# ---------------------------------------------------------------------------
-# Build
-# ---------------------------------------------------------------------------
+INDEX_VECTORS_NAME = "index_vectors.npy"
+INDEX_META_NAME = "index_meta.json"
 
 
-def build_index(chunks: List[Dict[str, Any]], embeddings: np.ndarray):
+def build_index(
+    *,
+    entries_dir: Optional[Path] = None,
+    artifacts_dir: Optional[Path] = None,
+) -> Tuple[np.ndarray, List[int]]:
     """
-    Create a FAISS flat inner-product index from pre-computed embeddings.
+    Build the offline retrieval index.
 
-    Because embeddings are L2-normalised, inner product == cosine similarity.
-
-    Args:
-        chunks: list of chunk dicts (same order as embeddings).
-        embeddings: float32 array of shape (N, dim).
-
-    Returns:
-        (index, chunks) tuple – the FAISS index and the chunk list.
+    This function:
+    1. Loads all Wikipedia entries.
+    2. Converts them to chunks.
+    3. Embeds all chunks.
+    4. Saves vectors and metadata under artifacts/.
     """
-    import faiss  # type: ignore
+    out_dir = artifacts_dir or ensure_artifacts_dir()
 
-    dim = embeddings.shape[1]
-    index = faiss.IndexFlatIP(dim)
-    index.add(embeddings)
-    return index, chunks
+    print("Loading corpus...")
+    records = list(iter_entries(entries_dir))
+    print(f"Loaded {len(records)} pages.")
+
+    print("Creating chunks...")
+    chunks: List[Chunk] = chunk_corpus(records)
+    print(f"Created {len(chunks)} chunks.")
+
+    print("Embedding corpus chunks...")
+    texts = [chunk.text for chunk in chunks]
+    vectors = embed_texts(texts)
+    print(f"Vector matrix shape: {vectors.shape}")
+
+    page_ids = [chunk.page_id for chunk in chunks]
+    chunk_ids = [chunk.chunk_id for chunk in chunks]
+
+    print("Saving artifacts...")
+    np.save(out_dir / INDEX_VECTORS_NAME, vectors)
+
+    meta = {
+        "page_ids": page_ids,
+        "chunk_ids": chunk_ids,
+        "model": EMBEDDING_MODEL_NAME,
+        "num_vectors": len(page_ids),
+    }
+
+    (out_dir / INDEX_META_NAME).write_text(
+        json.dumps(meta, indent=2),
+        encoding="utf-8",
+    )
+
+    print(f"Saved {INDEX_VECTORS_NAME} and {INDEX_META_NAME} under artifacts/.")
+
+    return vectors, page_ids
 
 
-# ---------------------------------------------------------------------------
-# Persist / load
-# ---------------------------------------------------------------------------
-
-
-def save_index(
-    index,
-    chunks: List[Dict[str, Any]],
-    index_path: str = INDEX_PATH,
-    chunks_path: str = CHUNKS_PATH,
-) -> None:
-    """Save FAISS index and chunk metadata to disk."""
-    import faiss  # type: ignore
-
-    os.makedirs(os.path.dirname(index_path), exist_ok=True)
-    faiss.write_index(index, index_path)
-    with open(chunks_path, "wb") as f:
-        pickle.dump(chunks, f)
-
-
-def load_index(index_path: str = INDEX_PATH, chunks_path: str = CHUNKS_PATH):
+def load_index(
+    artifacts_dir: Optional[Path] = None,
+) -> Tuple[np.ndarray, List[int]]:
     """
-    Load a previously saved FAISS index and chunk list.
+    Load precomputed vectors and metadata from artifacts/.
 
-    Returns:
-        (index, chunks) tuple.
-
-    Raises:
-        FileNotFoundError if artifacts are missing.
+    This is what run() uses during evaluation.
     """
-    import faiss  # type: ignore
+    root = artifacts_dir or ARTIFACTS_DIR
 
-    if not os.path.exists(index_path):
+    vectors_path = root / INDEX_VECTORS_NAME
+    meta_path = root / INDEX_META_NAME
+
+    if not vectors_path.exists():
         raise FileNotFoundError(
-            f"Index not found at {index_path}. "
-            "Run scripts/build_index.py to build the index first."
+            f"Missing artifact: {vectors_path}. "
+            "Run python scripts/build_index.py first."
         )
-    if not os.path.exists(chunks_path):
+
+    if not meta_path.exists():
         raise FileNotFoundError(
-            f"Chunk metadata not found at {chunks_path}. "
-            "Run scripts/build_index.py to build the index first."
+            f"Missing artifact: {meta_path}. "
+            "Run python scripts/build_index.py first."
         )
 
-    index = faiss.read_index(index_path)
-    with open(chunks_path, "rb") as f:
-        chunks = pickle.load(f)
-    return index, chunks
+    vectors = np.load(vectors_path)
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
 
+    page_ids = [int(pid) for pid in meta["page_ids"]]
 
-# ---------------------------------------------------------------------------
-# Search
-# ---------------------------------------------------------------------------
-
-
-def search_index(
-    index, chunks: List[Dict[str, Any]], query_embeddings: np.ndarray, top_k: int = 10
-) -> List[List[Dict[str, Any]]]:
-    """
-    Query the FAISS index and return ranked chunk results per query.
-
-    Args:
-        index: loaded FAISS index.
-        chunks: list of chunk dicts aligned with the index.
-        query_embeddings: float32 array of shape (Q, dim).
-        top_k: number of results to return per query.
-
-    Returns:
-        List of length Q, where each element is a list of up to top_k chunk dicts
-        sorted by descending relevance, each augmented with a 'score' key.
-    """
-    scores, indices = index.search(query_embeddings, top_k)
-    results = []
-    for row_scores, row_indices in zip(scores, indices):
-        ranked = []
-        for score, idx in zip(row_scores, row_indices):
-            if idx == -1:
-                continue
-            chunk = dict(chunks[idx])
-            chunk["score"] = float(score)
-            ranked.append(chunk)
-        results.append(ranked)
-    return results
+    return vectors, page_ids
