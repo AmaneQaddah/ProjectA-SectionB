@@ -8,6 +8,7 @@ _model = None
 
 _MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
+
 def _get_model():
     """Load and cache the sentence-transformer model."""
     global _model
@@ -44,3 +45,4 @@ def embed_chunks(
 def embed_queries(queries: List[str], batch_size: int = 64) -> np.ndarray:
     """Encode query strings into L2-normalised dense vectors."""
     return embed_texts(queries, batch_size=batch_size, show_progress=False)
+
