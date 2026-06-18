@@ -6,8 +6,7 @@ import numpy as np
 
 _model = None
 
-_MODEL_NAME = "multi-qa-MiniLM-L6-cos-v1"
-
+_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 def _get_model():
     """Load and cache the sentence-transformer model."""
