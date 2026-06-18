@@ -3,11 +3,11 @@
 ## Team Members
 
 * Amane Qaddah
-* Partner Name
+* Bayan Khatieeb
 
 ## Video Presentation
 
-Video link: **PUT_VIDEO_LINK_HERE**
+Video link: **(https://drive.google.com/drive/folders/1ABxMZfPmy7vRf46kQAW7dAFCJzel7v2o?usp=drive_link)**
 
 ---
 
@@ -192,17 +192,6 @@ After the artifacts are available, run:
 ```bash
 python scripts/eval_public.py
 ```
-
-This evaluates the retrieval pipeline on the 50 public queries.
-
-Our public evaluation result:
-
-```text
-Mean NDCG@10: PUT_YOUR_NDCG_SCORE_HERE
-Runtime: PUT_YOUR_RUNTIME_HERE
-```
-
----
 
 ## Required API
 
